@@ -135,7 +135,7 @@ namespace lab3_1.Controllers.API
 						foundPerson.Birthday = reader.Birthday;
 						_context.SaveChanges();
 						_logger.LogInformation("Reader was successfully updated.");
-						return Created("reader", reader);
+						return Created("employee", JsonSerializer.Serialize(_mapper.Map<AuthorViewModel>((foundReader, foundPerson))));
 					}
 				}
 				catch (DbUpdateConcurrencyException)
@@ -173,36 +173,37 @@ namespace lab3_1.Controllers.API
 		///		}
 		/// </remarks>
 		/// <response code="201">Posts an items</response>
-		/// <response code="400">Validation failed</response>
+		/// <response code="204">Table is empty</response>
 		/// <response code="404">DB table was not found</response>
+		/// <response code="422">Validation failed</response>
 		// To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
 		[HttpPost]
 		[ProducesResponseType(StatusCodes.Status201Created)]
+		[ProducesResponseType(StatusCodes.Status204NoContent)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 		public async Task<ActionResult<ReaderViewModel>> PostReader([FromBody] ReaderViewModel reader)
 		{
 			if (_context.Readers == null)
 			{
 				_logger.LogInformation("Table \"Reader\" or \"Person\" was not found.");
-				return Problem("Table is null.");
+				return NoContent();
 			}
 
 			if (!isValid(reader))
 			{
 				_logger.LogInformation("Invalid values were entered.");
-				return ValidationProblem("Email isn't valid or empty values were entered.");
+				return UnprocessableEntity("Email isn't valid or empty values were entered.");
 			}
 
-			_context.People.Add(_mapper.Map<Person>(reader));
-			await _context.SaveChangesAsync();
-
+			var personEntry = _context.People.Add(_mapper.Map<Person>(reader));
 			var _reader = _mapper.Map<Reader>(reader);
-			_reader.ReaderId = _context.People.Max(p => p.PersonId);
-			_context.Readers.Add(_reader);
+			_reader.ReaderId = personEntry.Entity.PersonId;
+			var readerEntry = _context.Readers.Add(_reader);
 			await _context.SaveChangesAsync();
 
 			_logger.LogInformation("Reader was succesfully added.");
-			return Created("reader", reader);
+			return Created("reader", JsonSerializer.Serialize(_mapper.Map<AuthorViewModel>((readerEntry.Entity, personEntry.Entity))));
 		}
 
 		/// <summary>

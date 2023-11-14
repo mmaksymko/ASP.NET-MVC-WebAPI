@@ -133,7 +133,7 @@ namespace LiBaby.Controllers.API
 						foundPerson.Birthday = author.Birthday;
 						_context.SaveChanges();
 						_logger.LogInformation("Author was successfully updated.");
-						return Created("author", author);
+						return Created("author", JsonSerializer.Serialize(_mapper.Map<AuthorViewModel>((foundAuthor, foundPerson))));
 					}
 				}
 				catch (DbUpdateConcurrencyException)
@@ -171,35 +171,36 @@ namespace LiBaby.Controllers.API
 		///		}
 		/// </remarks>
 		/// <response code="201">Posts an items</response>
-		/// <response code="400">Validation failed</response>
+		/// <response code="204">Table is empty</response>
 		/// <response code="404">DB table was not found</response>
+		/// <response code="422">Validation failed</response>
 		// To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
 		[HttpPost]
 		[ProducesResponseType(StatusCodes.Status201Created)]
+		[ProducesResponseType(StatusCodes.Status204NoContent)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 		public async Task<ActionResult<AuthorViewModel>> PostAuthor([FromBody] AuthorViewModel author)
 		{
 			if (_context.Authors == null || _context.People == null)
 			{
 				_logger.LogError("Table \"Author\" or \"People\" was not found.");
-				return Problem("Table is null.");
+				return NoContent();
 			}
 			if (!isValid(author))
 			{
 				_logger.LogInformation("Invalid values were entered.");
-				return ValidationProblem("Empty values were entered.");
+				return UnprocessableEntity("Empty values were entered.");
 			}
 
-			_context.People.Add(_mapper.Map<Person>(author));
-			await _context.SaveChangesAsync();
-
+			var personEntry = _context.People.Add(_mapper.Map<Person>(author));
 			var _author = _mapper.Map<Author>(author);
-			_author.AuthorId = _context.People.Max(p => p.PersonId);
-			_context.Authors.Add(_author);
+			_author.AuthorId = personEntry.Entity.PersonId;
+			var authorEntry = _context.Authors.Add(_author);
 			await _context.SaveChangesAsync();
 
 			_logger.LogInformation("Author was succesfully added.");
-			return Created("author", author);
+			return Created("author", JsonSerializer.Serialize(_mapper.Map<AuthorViewModel>((authorEntry.Entity, personEntry.Entity))));
 		}
 
 		/// <summary>

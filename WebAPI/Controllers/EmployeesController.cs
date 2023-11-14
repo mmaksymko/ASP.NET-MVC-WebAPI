@@ -126,16 +126,16 @@ namespace lab3_1.Controllers.API
 				try
 				{
 					var foundPerson = _context.People.SingleOrDefault(person => person.PersonId == id);
-					var foundemployee = _context.Employees.SingleOrDefault(employee => employee.EmployeeId == id);
-					if (foundPerson != null && foundemployee != null)
+					var foundEmployee = _context.Employees.SingleOrDefault(employee => employee.EmployeeId == id);
+					if (foundPerson != null && foundEmployee != null)
 					{
-						foundemployee.Salary = employee.Salary;
+						foundEmployee.Salary = employee.Salary;
 						foundPerson.FirstName = employee.FirstName;
 						foundPerson.LastName = employee.LastName;
 						foundPerson.Birthday = employee.Birthday;
 						_context.SaveChanges();
 						_logger.LogInformation("Employee was successfully updated.");
-						return Created("employee", employee);
+						return Created("employee", JsonSerializer.Serialize(_mapper.Map<AuthorViewModel>((foundEmployee, foundPerson))));
 					}
 				}
 				catch (DbUpdateConcurrencyException)
@@ -173,35 +173,36 @@ namespace lab3_1.Controllers.API
 		///		}
 		/// </remarks>
 		/// <response code="201">Posts an items</response>
-		/// <response code="400">Validation failed</response>
+		/// <response code="204">Table is empty</response>
 		/// <response code="404">DB table was not found</response>
+		/// <response code="422">Validation failed</response>
 		// To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
 		[HttpPost]
 		[ProducesResponseType(StatusCodes.Status201Created)]
+		[ProducesResponseType(StatusCodes.Status204NoContent)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 		public async Task<ActionResult<EmployeeViewModel>> PostEmployee([FromBody] EmployeeViewModel employee)
 		{
 			if (_context.Employees == null)
 			{
 				_logger.LogInformation("Table \"Employee\" or \"Person\" was not found.");
-				return Problem("Table is null.");
+				return NoContent();
 			}
 			if (!isValid(employee))
 			{
 				_logger.LogInformation("Invalid values were entered.");
-				return ValidationProblem("Empty values were entered.");
+				return UnprocessableEntity("Empty values were entered.");
 			}
 
-			_context.People.Add(_mapper.Map<Person>(employee));
-			await _context.SaveChangesAsync();
-
+			var personEntry = _context.People.Add(_mapper.Map<Person>(employee));
 			var _employee = _mapper.Map<Employee>(employee);
-			_employee.EmployeeId = _context.People.Max(p => p.PersonId);
-			_context.Employees.Add(_employee);
+			_employee.EmployeeId = personEntry.Entity.PersonId;
+			var employeeEntry = _context.Employees.Add(_employee);
 			await _context.SaveChangesAsync();
 
 			_logger.LogInformation("Employee was succesfully added.");
-			return Created("employee", employee);
+			return Created("employee", JsonSerializer.Serialize(_mapper.Map<AuthorViewModel>((employeeEntry.Entity, personEntry.Entity))));
 		}
 
 		/// <summary>

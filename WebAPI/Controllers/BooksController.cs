@@ -131,7 +131,7 @@ namespace lab3_1.Controllers.API
 						foundBook.ReleaseYear = book.ReleaseYear;
 						_context.SaveChanges();
 						_logger.LogInformation("Book was successfully updated.");
-						return Created("book", book);
+						return Created("book", JsonSerializer.Serialize(foundBook));
 					}
 				}
 				catch (DbUpdateConcurrencyException)
@@ -168,31 +168,35 @@ namespace lab3_1.Controllers.API
 		///		}
 		/// </remarks>
 		/// <response code="201">Posts an items</response>
-		/// <response code="400">Validation failed</response>
+		/// <response code="204">Table is empty</response>
 		/// <response code="404">DB table was not found</response>
+		/// <response code="422">Validation failed</response>
 		// To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
 		[HttpPost]
 		[ProducesResponseType(StatusCodes.Status201Created)]
+		[ProducesResponseType(StatusCodes.Status204NoContent)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+
 		public async Task<ActionResult<BookViewModel>> PostBook([FromBody] BookViewModel book)
 		{
 			if (_context.Books == null)
 			{
 				_logger.LogInformation("Table \"Book\" was not found.");
-				return Problem("Table is null.");
+				return NoContent();
 			}
 
 			if (!isValid(book))
 			{
 				_logger.LogInformation("Invalid values were entered.");
-				return ValidationProblem("Publisher Id doesn't exist or Empty values were entered.");
+				return UnprocessableEntity("Publisher Id doesn't exist or Empty values were entered.");
 			}
 
-			_context.Books.Add(_mapper.Map<Book>(book));
+			var entry = _context.Books.Add(_mapper.Map<Book>(book));
 			await _context.SaveChangesAsync();
 
 			_logger.LogInformation("Book was succesfully added.");
-			return Created("book", book);
+			return Created("book", JsonSerializer.Serialize(entry));
 		}
 
 		/// <summary>

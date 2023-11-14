@@ -127,7 +127,7 @@ namespace lab3_1.Controllers.API
 						foundPublisher.Name = publisher.Name;
 						_context.SaveChanges();
 						_logger.LogInformation("Publisher was successfully updated.");
-						return Created("publisher", publisher);
+						return Created("publisher", JsonSerializer.Serialize(foundPublisher));
 					}
 				}
 				catch (DbUpdateConcurrencyException)
@@ -162,31 +162,35 @@ namespace lab3_1.Controllers.API
 		///		}
 		/// </remarks>
 		/// <response code="201">Posts an items</response>
-		/// <response code="400">Validation failed</response>
+		/// <response code="204">Table is empty</response>
 		/// <response code="404">DB table was not found</response>
+		/// <response code="422">Validation failed</response>
 		// To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
 		[HttpPost]
 		[ProducesResponseType(StatusCodes.Status201Created)]
+		[ProducesResponseType(StatusCodes.Status204NoContent)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		[ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+
 		public async Task<ActionResult<PublisherViewModel>> PostPublisher([FromBody] PublisherViewModel publisher)
 		{
 			if (_context.Publishers == null)
 			{
 				_logger.LogInformation("Table \"Publisher\" was not found.");
-				return Problem("Table is null.");
+				return NoContent();
 			}
 
 			if (!isValid(publisher))
 			{
 				_logger.LogInformation("Invalid values were entered.");
-				return ValidationProblem("Empty values were entered.");
+				return UnprocessableEntity("Empty values were entered.");
 			}
 
-			_context.Publishers.Add(_mapper.Map<Publisher>(publisher));
+			var entry = _context.Publishers.Add(_mapper.Map<Publisher>(publisher));
 			await _context.SaveChangesAsync();
 
 			_logger.LogInformation("Publisher was succesfully added.");
-			return Created("publisher", publisher);
+			return Created("publisher", JsonSerializer.Serialize(entry));
 		}
 
 		/// <summary>
